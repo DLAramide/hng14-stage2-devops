@@ -1,6 +1,11 @@
-def test_worker_runs(mocker):
-    mock_redis = mocker.patch("worker.worker.redis.Redis")
-    instance = mock_redis.return_value
-    instance.ping.return_value = True
+def test_worker_runs(monkeypatch):
+    class FakeRedis:
+        def ping(self):
+            return True
 
-    assert instance.ping() is True
+    monkeypatch.setattr("worker.worker.redis.Redis", lambda *args, **kwargs: FakeRedis())
+
+    from worker.worker import redis  # import AFTER patch
+
+    r = redis.Redis()
+    assert r.ping() is True
