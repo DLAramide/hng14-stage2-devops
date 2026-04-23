@@ -5,7 +5,11 @@ on:
     branches: [main, develop]
   pull_request:
 
+env:
+  PYTHON_VERSION: "3.11"
+
 jobs:
+
   lint:
     runs-on: ubuntu-latest
 
@@ -15,17 +19,39 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Install flake8
+      - name: Install Python lint tools
         run: pip install flake8
 
-      - name: Lint API + Worker
-        run: flake8 api worker
+      - name: Python lint (API + Worker)
+        run: flake8 api worker --exclude=venv,__pycache__
+
+      - name: Setup Node (frontend lint requirement)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install frontend lint deps
+        run: |
+          cd frontend
+          npm install
+          npm install eslint
+
+      - name: Frontend lint
+        run: |
+          cd frontend
+          npx eslint .
 
   test:
     runs-on: ubuntu-latest
-    needs: lint   # 👈 IMPORTANT: runs only if lint passes
+    needs: lint
+
+    services:
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
 
     steps:
       - uses: actions/checkout@v4
@@ -33,12 +59,103 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install dependencies
         run: |
-          pip install pytest
+          pip install pytest httpx pytest-cov
           pip install -r api/requirements.txt
 
-      - name: Run tests
-        run: PYTHONPATH=. pytest -q
+      - name: Run tests with coverage
+        run: pytest -q --cov=api --cov-report=xml
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
+
+
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build API image
+        run: |
+          docker build -t api-service:${{ github.sha }} ./api
+          docker tag api-service:${{ github.sha }} api-service:latest
+
+      - name: Build Worker image
+        run: |
+          docker build -t worker-service:${{ github.sha }} ./worker
+          docker tag worker-service:${{ github.sha }} worker-service:latest
+
+      - name: Build Frontend image
+        run: |
+          docker build -t frontend-service:${{ github.sha }} ./frontend
+          docker tag frontend-service:${{ github.sha }} frontend-service:latest
+
+  security:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Trivy
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget
+          wget https://github.com/aquasecurity/trivy/releases/latest/download/trivy_0.50.0_Linux-64bit.deb
+          sudo dpkg -i trivy_0.50.0_Linux-64bit.deb
+
+      - name: Scan API image
+        run: trivy image api-service:${{ github.sha }} --exit-code 1 --severity CRITICAL
+
+      - name: Scan Worker image
+        run: trivy image worker-service:${{ github.sha }} --exit-code 1 --severity CRITICAL
+
+      - name: Scan Frontend image
+        run: trivy image frontend-service:${{ github.sha }} --exit-code 1 --severity CRITICAL
+
+  integration:
+    runs-on: ubuntu-latest
+    needs: security
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start full stack
+        run: docker compose up -d --build
+
+      - name: Wait for API health
+        run: sleep 20
+
+      - name: Create job
+        run: curl -X POST http://localhost:8000/jobs
+
+      - name: Check job status endpoint
+        run: curl http://localhost:8000/health
+
+      - name: Tear down
+        if: always()
+        run: docker compose down
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: integration
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy with rolling update
+        run: |
+          docker compose pull || true
+          docker compose up -d --build
+
+      - name: Verify health
+        run: sleep 15

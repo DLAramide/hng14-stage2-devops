@@ -1,13 +1,8 @@
 version: "3.9"
 
 services:
-
   redis:
     image: redis:7
-    container_name: redis
-    restart: always
-    ports:
-      - "6379:6379"
     networks:
       - backend
     healthcheck:
@@ -15,75 +10,61 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
-    deploy:
-      resources:
-        limits:
-          cpus: "0.5"
-          memory: 256M
 
   api:
-    build:
-      context: ./api
-    container_name: api
-    restart: always
+    build: ./api
     ports:
       - "8000:8000"
+    networks:
+      - backend
     environment:
       REDIS_HOST: redis
       REDIS_PORT: 6379
     depends_on:
       redis:
         condition: service_healthy
-    networks:
-      - backend
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 10s
-      timeout: 5s
+      timeout: 3s
       retries: 5
     deploy:
       resources:
         limits:
-          cpus: "0.5"
-          memory: 512M
+          cpus: "0.50"
+          memory: 256M
 
   worker:
-    build:
-      context: ./worker
-    container_name: worker
-    restart: always
+    build: ./worker
+    networks:
+      - backend
     environment:
       REDIS_HOST: redis
       REDIS_PORT: 6379
     depends_on:
       redis:
         condition: service_healthy
-    networks:
-      - backend
     deploy:
       resources:
         limits:
-          cpus: "0.3"
+          cpus: "0.50"
           memory: 256M
 
   frontend:
-    build:
-      context: ./frontend
-    container_name: frontend
-    restart: always
+    build: ./frontend
     ports:
       - "3000:3000"
+    networks:
+      - backend
     environment:
       API_URL: http://api:8000
     depends_on:
       api:
-        condition: service_started
-    networks:
-      - backend
+        condition: service_healthy
     deploy:
       resources:
         limits:
-          cpus: "0.3"
+          cpus: "0.50"
           memory: 256M
 
 networks:

@@ -1,20 +1,30 @@
-FROM node:18-alpine
+# ---------- Stage 1: deps ----------
+FROM node:20-alpine AS deps
 
 WORKDIR /app
 
-# install dependencies
 COPY package*.json ./
-RUN npm install
+RUN npm install --only=production
 
-# copy app
+
+# ---------- Stage 2: runtime ----------
+FROM node:20-alpine
+
+WORKDIR /app
+
+# create non-root user
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+# copy dependencies
+COPY --from=deps /app/node_modules ./node_modules
+
+# copy app source
 COPY . .
 
-# non-root user
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
-USER appuser
+# fix permissions
+RUN chown -R appuser:appgroup /app
 
-ENV PORT=3000
-ENV API_URL=http://api:8000
+USER appuser
 
 EXPOSE 3000
 

@@ -1,21 +1,38 @@
+# ---------- Stage 1: builder ----------
+FROM python:3.11-slim AS builder
+
+WORKDIR /app
+
+# install build deps (only here)
+RUN apt-get update && apt-get install -y build-essential
+
+COPY requirements.txt .
+RUN pip install --user --no-cache-dir -r requirements.txt
+
+
+# ---------- Stage 2: runtime ----------
 FROM python:3.11-slim
 
 WORKDIR /app
 
-# install dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# create non-root user
+RUN useradd -m workeruser
 
-# copy worker code
+# copy installed packages
+COPY --from=builder /root/.local /home/workeruser/.local
+
+# copy app code
 COPY . .
 
-# non-root user (REQUIRED for grading)
-RUN useradd -m workeruser
+# switch to non-root
 USER workeruser
 
-# environment defaults (can be overridden by compose)
+# ensure python sees installed packages
+ENV PATH=/home/workeruser/.local/bin:$PATH
+
+# env config
 ENV REDIS_HOST=redis
 ENV REDIS_PORT=6379
 
-# start worker
+# run worker
 CMD ["python", "worker.py"]
