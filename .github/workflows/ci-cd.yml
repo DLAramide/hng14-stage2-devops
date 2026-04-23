@@ -104,7 +104,10 @@ jobs:
           docker push localhost:5000/api-service:${{ github.sha }}
           docker push localhost:5000/worker-service:${{ github.sha }}
           docker push localhost:5000/frontend-service:${{ github.sha }}  
-  
+
+      - name: Check registry catalog
+        run: curl http://localhost:5000/v2/_catalog
+        
   security:
     runs-on: ubuntu-latest
     needs: build
