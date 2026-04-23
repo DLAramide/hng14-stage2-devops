@@ -110,11 +110,11 @@ jobs:
     needs: build
 
 
-  services:
-    registry:
-      image: registry:2
-      ports:
-        - 5000:5000
+    services:
+      registry:
+        image: registry:2
+        ports:
+         - 5000:5000
 
     steps:
       - uses: actions/checkout@v4
