@@ -181,15 +181,18 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y trivy
 
-      - name: Scan images (SARIF output)
+      - name: Scan API image
+        run: trivy image --format sarif -o api.sarif ghcr.io/${OWNER}/${REPO}/api:${{ github.sha }} --severity CRITICAL
+
+      - name: Scan Worker image
+        run: trivy image --format sarif -o worker.sarif ghcr.io/${OWNER}/${REPO}/worker:${{ github.sha }} --severity CRITICAL
+
+      - name: Scan Frontend image
+        run: trivy image --format sarif -o frontend.sarif ghcr.io/${OWNER}/${REPO}/frontend:${{ github.sha }} --severity CRITICAL
+
+      - name: Merge SARIF files
         run: |
-          trivy image \
-            --format sarif \
-            -o trivy.sarif \
-            ghcr.io/${OWNER}/${REPO}/api:${{ github.sha }} \
-            ghcr.io/${OWNER}/${REPO}/worker:${{ github.sha }} \
-            ghcr.io/${OWNER}/${REPO}/frontend:${{ github.sha }} \
-            --severity CRITICAL
+          jq -s '.[0] * .[1] * .[2]' api.sarif worker.sarif frontend.sarif > trivy.sarif
 
       - name: Upload SARIF report
         uses: github/codeql-action/upload-sarif@v3
