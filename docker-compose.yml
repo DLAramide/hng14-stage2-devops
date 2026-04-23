@@ -11,6 +11,11 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128M
 
   api:
     build: ./api
@@ -33,8 +38,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "${API_CPU}"
-          memory: "${API_MEMORY}"
+          cpus: "0.50"
+          memory: 256M
 
   worker:
     build: ./worker
@@ -50,8 +55,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "${WORKER_CPU}"
-          memory: "${WORKER_MEMORY}"
+          cpus: "0.50"
+          memory: 256M
 
   frontend:
     build: ./frontend
@@ -68,8 +73,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "${FE_CPU}"
-          memory: "${FE_MEMORY}"
+          cpus: "0.50"
+          memory: 256M
 
 networks:
   backend:
