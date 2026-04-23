@@ -35,6 +35,7 @@ def health():
 
 @app.post("/jobs")
 def create_job():
+    r = get_redis()
     job_id = str(uuid.uuid4())
     r.lpush("job", job_id)
     r.hset(f"job:{job_id}", "status", "queued")
