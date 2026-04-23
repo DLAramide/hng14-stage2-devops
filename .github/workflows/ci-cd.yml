@@ -8,7 +8,7 @@ on:
 permissions:
   contents: read
   packages: write
-  
+
 env:
   PYTHON_VERSION: "3.11"
   REGISTRY: ghcr.io
@@ -119,10 +119,10 @@ jobs:
     needs: build
 
     steps:
-     - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-     - name: Install Trivy
-       run: |
+      - name: Install Trivy
+        run: |
           sudo apt-get update
           sudo apt-get install -y wget apt-transport-https gnupg
           wget -qO- https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo tee /etc/apt/trusted.gpg.d/trivy.asc
@@ -130,15 +130,15 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y trivy
 
-     - name: Scan API image
-       run: trivy image ghcr.io/${{ github.repository }}/api:${{ github.sha }} --exit-code 1 --severity CRITICAL
+      - name: Scan API image
+        run: trivy image ghcr.io/${OWNER}/${REPO}/api:${{ github.sha }} --exit-code 1 --severity CRITICAL
 
-     - name: Scan Worker image
-       run: trivy image ghcr.io/${{ github.repository }}/worker:${{ github.sha }} --exit-code 1 --severity CRITICAL
+      - name: Scan Worker image
+        run: trivy image ghcr.io/${OWNER}/${REPO}/worker:${{ github.sha }} --exit-code 1 --severity CRITICAL
 
-     - name: Scan Frontend image
-       run: trivy image ghcr.io/${{ github.repository }}/frontend:${{ github.sha }} --exit-code 1 --severity CRITICAL
-
+      - name: Scan Frontend image
+        run: trivy image ghcr.io/${OWNER}/${REPO}/frontend:${{ github.sha }} --exit-code 1 --severity CRITICAL
+ 
   integration:
     runs-on: ubuntu-latest
     needs: security
