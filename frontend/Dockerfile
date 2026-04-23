@@ -4,7 +4,7 @@ FROM node:20-alpine AS build
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm install
+RUN npm ci
 
 COPY . .
 
@@ -14,8 +14,13 @@ FROM node:20-alpine
 
 WORKDIR /app
 
+# install wget for healthcheck
+RUN apk add --no-cache wget
+
+# create non-root user
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
+# copy only necessary files
 COPY --from=build /app /app
 
 RUN chown -R appuser:appgroup /app
