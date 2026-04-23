@@ -32,9 +32,13 @@ def process_job(job_id):
     print(f"Done: {job_id}")
 
 
-while running:
-    job = r.brpop("job", timeout=5)
+def run_worker():
+    while True:
+        job = r.brpop("job", timeout=5)
+        if job:
+            _, job_id = job
+            process_job(job_id)
 
-    if job:
-        _, job_id = job
-        process_job(job_id)
+
+if __name__ == "__main__":
+    run_worker()
