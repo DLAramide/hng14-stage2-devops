@@ -80,24 +80,31 @@ jobs:
     runs-on: ubuntu-latest
     needs: test
 
+    services:
+      registry:
+        image: registry:2
+        ports:
+          - 5000:5000
     steps:
       - uses: actions/checkout@v4
 
       - name: Build API image
-        run: |
-          docker build -t api-service:${{ github.sha }} ./api
-          docker tag api-service:${{ github.sha }} api-service:latest
+        run: docker build -t localhost:5000/api-service:${{ github.sha }} ./api
+       
 
       - name: Build Worker image
-        run: |
-          docker build -t worker-service:${{ github.sha }} ./worker
-          docker tag worker-service:${{ github.sha }} worker-service:latest
+        run: docker build -t localhost:5000/worker-service:${{ github.sha }} ./worker
+         
 
       - name: Build Frontend image
-        run: |
-          docker build -t frontend-service:${{ github.sha }} ./frontend
-          docker tag frontend-service:${{ github.sha }} frontend-service:latest
+        run: docker build -t localhost:5000/frontend-service:${{ github.sha }} ./frontend
 
+      - name: Push images
+        run: |
+          docker push localhost:5000/api-service:${{ github.sha }}
+          docker push localhost:5000/worker-service:${{ github.sha }}
+          docker push localhost:5000/frontend-service:${{ github.sha }}  
+  
   security:
     runs-on: ubuntu-latest
     needs: build
@@ -118,14 +125,15 @@ jobs:
 
           sudo apt-get update
           sudo apt-get install -y trivy
+
       - name: Scan API image
-        run: trivy image api-service:${{ github.sha }} --exit-code 1 --severity CRITICAL
+        run: trivy image localhost:5000/api-service:${{ github.sha }} --exit-code 1 --severity CRITICAL
 
       - name: Scan Worker image
-        run: trivy image worker-service:${{ github.sha }} --exit-code 1 --severity CRITICAL
+        run: trivy image localhost:5000/worker-service:${{ github.sha }} --exit-code 1 --severity CRITICAL
 
       - name: Scan Frontend image
-        run: trivy image frontend-service:${{ github.sha }} --exit-code 1 --severity CRITICAL
+        run: trivy image localhost:5000/frontend-service:${{ github.sha }} --exit-code 1 --severity CRITICAL
 
   integration:
     runs-on: ubuntu-latest
