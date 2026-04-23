@@ -7,6 +7,10 @@ on:
 
 env:
   PYTHON_VERSION: "3.11"
+  REGISTRY: ghcr.io
+  OWNER: dlaramide
+  REPO: hng14-stage2-devops
+
 
 jobs:
 
@@ -88,25 +92,24 @@ jobs:
 
       - name: Build API image
         run: |
-          docker build -t ghcr.io/${{ github.repository }}/api:${{ github.sha }} ./api
-          docker tag ghcr.io/${{ github.repository }}/api:${{ github.sha }} ghcr.io/${{ github.repository }}/api:latest
-
+          docker build -t $REGISTRY/$OWNER/$REPO/api:${{ github.sha }} ./api
+          docker tag $REGISTRY/$OWNER/$REPO/api:${{ github.sha }} $REGISTRY/$OWNER/$REPO/api:latest
+      
       - name: Build Worker image
         run: |
-          docker build -t ghcr.io/${{ github.repository }}/worker:${{ github.sha }} ./worker
-          docker tag ghcr.io/${{ github.repository }}/worker:${{ github.sha }} ghcr.io/${{ github.repository }}/worker:latest
+          docker build -t $REGISTRY/$OWNER/$REPO/worker:${{ github.sha }} ./worker
+          docker tag $REGISTRY/$OWNER/$REPO/worker:${{ github.sha }} $REGISTRY/$OWNER/$REPO/worker:latest
 
       - name: Build Frontend image
         run: |
-          docker build -t ghcr.io/${{ github.repository }}/frontend:${{ github.sha }} ./frontend
-          docker tag ghcr.io/${{ github.repository }}/frontend:${{ github.sha }} ghcr.io/${{ github.repository }}/frontend:latest
-
+           docker build -t $REGISTRY/$OWNER/$REPO/frontend:${{ github.sha }} ./frontend
+           docker tag $REGISTRY/$OWNER/$REPO/frontend:${{ github.sha }} $REGISTRY/$OWNER/$REPO/frontend:latest
+      
       - name: Push images
         run: |
-          docker push ghcr.io/${{ github.repository }}/api:${{ github.sha }}
-          docker push ghcr.io/${{ github.repository }}/worker:${{ github.sha }}
-          docker push ghcr.io/${{ github.repository }}/frontend:${{ github.sha }}
-
+            docker push $REGISTRY/$OWNER/$REPO/api:${{ github.sha }}
+            docker push $REGISTRY/$OWNER/$REPO/worker:${{ github.sha }}
+            docker push $REGISTRY/$OWNER/$REPO/frontend:${{ github.sha }}
   security:
     runs-on: ubuntu-latest
     needs: build
@@ -131,7 +134,7 @@ jobs:
 
      - name: Scan Frontend image
        run: trivy image ghcr.io/${{ github.repository }}/frontend:${{ github.sha }} --exit-code 1 --severity CRITICAL
-       
+
   integration:
     runs-on: ubuntu-latest
     needs: security
