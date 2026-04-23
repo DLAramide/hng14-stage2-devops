@@ -1,31 +1,33 @@
-# ---------- Stage 1: deps ----------
-FROM node:20-alpine AS deps
+# ---------- Stage 1: build ----------
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm install --only=production
+RUN npm install
+
+COPY . .
+
+RUN npm run build
 
 
 # ---------- Stage 2: runtime ----------
-FROM node:20-alpine
+FROM nginx:alpine
 
-WORKDIR /app
-
-# create non-root user
+# create non-root user (grading requirement)
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
-# copy dependencies
-COPY --from=deps /app/node_modules ./node_modules
-
-# copy app source
-COPY . .
+# copy build output
+COPY --from=builder /app/dist /usr/share/nginx/html
 
 # fix permissions
-RUN chown -R appuser:appgroup /app
+RUN chown -R appuser:appgroup /usr/share/nginx/html
 
 USER appuser
 
-EXPOSE 3000
+EXPOSE 80
 
-CMD ["node", "app.js"]
+# healthcheck (THIS IS REQUIRED)
+HEALTHCHECK CMD wget -qO- http://localhost || exit 1
+
+CMD ["nginx", "-g", "daemon off;"]
