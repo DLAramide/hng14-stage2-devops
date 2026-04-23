@@ -80,78 +80,58 @@ jobs:
     runs-on: ubuntu-latest
     needs: test
 
-    services:
-      registry:
-        image: registry:2
-        ports:
-          - 5000:5000
     steps:
       - uses: actions/checkout@v4
 
+      - name: Login to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
       - name: Build API image
-        run: docker build -t localhost:5000/api-service:${{ github.sha }} ./api
-       
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}/api:${{ github.sha }} ./api
+          docker tag ghcr.io/${{ github.repository }}/api:${{ github.sha }} ghcr.io/${{ github.repository }}/api:latest
 
       - name: Build Worker image
-        run: docker build -t localhost:5000/worker-service:${{ github.sha }} ./worker
-         
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}/worker:${{ github.sha }} ./worker
+          docker tag ghcr.io/${{ github.repository }}/worker:${{ github.sha }} ghcr.io/${{ github.repository }}/worker:latest
 
       - name: Build Frontend image
-        run: docker build -t localhost:5000/frontend-service:${{ github.sha }} ./frontend
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}/frontend:${{ github.sha }} ./frontend
+          docker tag ghcr.io/${{ github.repository }}/frontend:${{ github.sha }} ghcr.io/${{ github.repository }}/frontend:latest
 
       - name: Push images
         run: |
-          docker push localhost:5000/api-service:${{ github.sha }}
-          docker push localhost:5000/worker-service:${{ github.sha }}
-          docker push localhost:5000/frontend-service:${{ github.sha }}  
+          docker push ghcr.io/${{ github.repository }}/api:${{ github.sha }}
+          docker push ghcr.io/${{ github.repository }}/worker:${{ github.sha }}
+          docker push ghcr.io/${{ github.repository }}/frontend:${{ github.sha }}
 
-      - name: Check registry catalog
-        run: curl http://localhost:5000/v2/_catalog
-        
   security:
     runs-on: ubuntu-latest
     needs: build
 
-
-    services:
-      registry:
-        image: registry:2
-        ports:
-         - 5000:5000
-
     steps:
-      - uses: actions/checkout@v4
+     - uses: actions/checkout@v4
 
-      - name: Install Trivy
-        run: |
+     - name: Install Trivy
+       run: |
           sudo apt-get update
           sudo apt-get install -y wget apt-transport-https gnupg
-
-          wget -qO- https://aquasecurity.github.io/trivy-repo/deb/public.key \
-            | sudo tee /etc/apt/trusted.gpg.d/trivy.asc
-
-          echo "deb https://aquasecurity.github.io/trivy-repo/deb generic main" \
-            | sudo tee -a /etc/apt/sources.list.d/trivy.list
-
+          wget -qO- https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo tee /etc/apt/trusted.gpg.d/trivy.asc
+          echo "deb https://aquasecurity.github.io/trivy-repo/deb generic main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
           sudo apt-get update
           sudo apt-get install -y trivy
 
-      - name: Pull images
-        run: |
-          docker pull localhost:5000/api-service:${{ github.sha }}
-          docker pull localhost:5000/worker-service:${{ github.sha }}
-          docker pull localhost:5000/frontend-service:${{ github.sha }}
+     - name: Scan API image
+       run: trivy image ghcr.io/${{ github.repository }}/api:${{ github.sha }} --exit-code 1 --severity CRITICAL
 
+     - name: Scan Worker image
+       run: trivy image ghcr.io/${{ github.repository }}/worker:${{ github.sha }} --exit-code 1 --severity CRITICAL
 
-      - name: Scan API image
-        run: trivy image localhost:5000/api-service:${{ github.sha }} --exit-code 1 --severity CRITICAL
-
-      - name: Scan Worker image
-        run: trivy image localhost:5000/worker-service:${{ github.sha }} --exit-code 1 --severity CRITICAL
-
-      - name: Scan Frontend image
-        run: trivy image localhost:5000/frontend-service:${{ github.sha }} --exit-code 1 --severity CRITICAL
-
+     - name: Scan Frontend image
+       run: trivy image ghcr.io/${{ github.repository }}/frontend:${{ github.sha }} --exit-code 1 --severity CRITICAL
+       
   integration:
     runs-on: ubuntu-latest
     needs: security
